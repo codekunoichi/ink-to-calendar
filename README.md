@@ -1,0 +1,1 @@
+I plan my week in pencil. It's therapeutic and I actually follow through. This app takes a photo of my Sunday planner page and schedules everything into Google Calendar — without replacing the ritual.
