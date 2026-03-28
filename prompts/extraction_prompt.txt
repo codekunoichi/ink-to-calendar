@@ -1,0 +1,34 @@
+Analyze this photograph of my weekly planner page.
+
+Extract all handwritten content and return the following JSON structure:
+
+{
+  "week_start": "YYYY-MM-DD",  // The Sunday of this week
+  "week_end": "YYYY-MM-DD",    // The Saturday of this week
+  "days": [
+    {
+      "date": "YYYY-MM-DD",
+      "day_name": "Monday",
+      "priorities": [
+        {
+          "position": 1,
+          "text": "exactly as written",
+          "confidence": "high" | "medium" | "low",
+          "category_hint": "work" | "chore" | "errand" | "health" 
+                           | "personal" | "unknown"
+        }
+      ]
+    }
+    // repeat for all 7 days
+  ],
+  "shopping_list": [
+    {
+      "item": "exactly as written",
+      "confidence": "high" | "medium" | "low"
+    }
+  ],
+  "extraction_notes": "any legibility issues, unusual layouts, 
+                        or ambiguities you encountered"
+}
+
+Return only the JSON. No explanation.
