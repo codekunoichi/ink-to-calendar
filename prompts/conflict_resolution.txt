@@ -1,0 +1,32 @@
+```
+
+---
+
+## Prompt 4 — Conflict Resolution Prompt (LLM Fallback)
+
+Only invoke this when your rules engine can't find a slot — for example, every morning slot this week is blocked. This is a lightweight text-only call.
+```
+I could not automatically schedule the following task using my 
+standard rules:
+
+Task: "{task_text}"
+Category: {category}
+Preferred window: {preferred_start} - {preferred_end} on {preferred_day}
+Reason it failed: {reason}  
+  // e.g. "All morning slots Monday-Wednesday are blocked by 
+  //       existing calendar events"
+
+My available open slots this week are:
+{open_slots_list}
+
+Suggest the single best slot from the available options above. 
+Consider: task type, time of day energy levels, and logical 
+grouping with similar tasks.
+
+Respond ONLY with this JSON:
+{
+  "suggested_date": "YYYY-MM-DD",
+  "suggested_start": "HH:MM",
+  "suggested_end": "HH:MM",
+  "reasoning": "one sentence"
+}
