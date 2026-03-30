@@ -207,6 +207,9 @@ marimo/_lsp/
 __marimo__/
 
 # Personal planner images — never commit
+test/**/*.png
+test/**/*.jpg
+test/**/*.jpeg
 tests/**/*.png
 tests/**/*.jpg
 tests/**/*.jpeg
