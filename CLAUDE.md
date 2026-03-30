@@ -6,13 +6,15 @@ A personal productivity app that bridges analog planning with digital
 scheduling. The owner writes her weekly priorities in pencil in a 
 physical planner every Sunday — this is intentional and therapeutic, 
 not a habit to replace. This app takes a photo of that planner page 
-and does three things:
+and does four things:
 
-1. Extracts handwritten tasks and shopping list items using a local 
-   vision LLM
-2. Schedules extracted tasks into Google Calendar based on simple 
+1. Extracts handwritten tasks and shopping list items using a local
+   vision LLM — including task status marks (✓ done, > rolled over)
+2. Schedules extracted tasks into Google Calendar based on simple
    deterministic rules
 3. Persists the shopping list as a mobile-accessible checklist
+4. Surfaces stuck tasks — tasks that keep rolling over week after week —
+   as gentle observations on the review screen
 
 The pencil ritual stays. This app is the bridge — nothing more.
 
@@ -36,10 +38,12 @@ The pencil ritual stays. This app is the bridge — nothing more.
 ```
 [Phone Camera]
      ↓ photo upload (browser)
-[FastAPI backend on DGX Sparc]
+[FastAPI backend]
      ↓ image bytes
-[Qwen2-VL vision model via vLLM]
-     ↓ structured JSON (tasks + shopping list)
+[Qwen2-VL vision model — Ollama (dev) / vLLM (prod)]
+     ↓ structured JSON (tasks + status marks + shopping list)
+[Pattern engine — query SQLite history for stuck tasks]
+     ↓ stuck task observations (gentle, read-only)
 [Human review step — MANDATORY before any scheduling]
      ↓ confirmed tasks
 [Rules-based scheduling engine]
@@ -51,9 +55,30 @@ The pencil ritual stays. This app is the bridge — nothing more.
 [Shopping list → persistent checklist UI]
 ```
 
-The human review step before scheduling is non-negotiable. The app 
-must show the user what was extracted and let them edit/confirm before 
+The human review step before scheduling is non-negotiable. The app
+must show the user what was extracted and let them edit/confirm before
 touching the calendar.
+
+---
+
+## Planner Format
+
+The physical planner is a **two-page flat spread** photographed in a
+single image. One week per spread. Days are laid out in clearly bounded
+sections — the vision model can use spatial position to assign tasks to
+the correct day.
+
+**Task status marks** — written by hand next to each task:
+
+| Mark | Meaning | Extracted as |
+|------|---------|--------------|
+| ✓ | Completed | `completed` |
+| `>` | Rolled over to another day | `rolled_over` |
+| *(blank)* | Open / not yet done | `open` |
+
+**Handwriting assumption:** The owner has clear, consistent handwriting.
+The extraction prompts may assume good legibility. Do not tune prompts
+for illegible handwriting — that is not the use case.
 
 ---
 
@@ -123,6 +148,7 @@ extraction notes.
         {
           "position": 1,
           "text": "exactly as written",
+          "status": "open|completed|rolled_over",
           "confidence": "high|medium|low",
           "category_hint": "work|chore|errand|health|personal|unknown"
         }
@@ -168,6 +194,7 @@ with one sentence of reasoning.
 class Priority(BaseModel):
     position: int
     text: str
+    status: Literal["open", "completed", "rolled_over"] = "open"  # from ✓ / > / blank
     confidence: Literal["high", "medium", "low"]
     category_hint: Literal[
         "work", "chore", "errand", "health", "personal", "unknown"
@@ -221,6 +248,12 @@ GET /shopping
 PATCH /shopping/{item_id}
   - Toggle item checked/unchecked
 
+GET /insights
+  - Called during review page load (after /upload)
+  - Queries last 6 weeks of stored WeeklyPlan history
+  - Returns list of stuck tasks (appeared rolled_over in 4+ of last 6 weeks)
+  - Read-only — no side effects, no LLM call
+
 GET /weeks
   - Returns list of previously uploaded weekly plans
 
@@ -239,9 +272,15 @@ GET /health
 
 ### 2. Review Page (`/review`)
 - Shows extracted tasks grouped by day
+- Each task shows its extracted status (✓ / > / blank) — not editable,
+  just displayed so she can confirm the model read the marks correctly
 - Editable text fields for each task (user can correct OCR errors)
 - Confidence indicators (low confidence items highlighted in amber)
-- Shopping list section below daily tasks
+- **Stuck task observation section** — appears below day tasks, above
+  shopping list. Gentle plain-text list, no alarming colors. Only shown
+  when there are stuck tasks to surface. Max 3 items displayed.
+  Example: "call dentist has rolled over 4 of the last 6 weeks."
+- Shopping list section
 - Single "Schedule My Week" confirm button
 - Back button to re-upload if extraction looks wrong
 
@@ -277,6 +316,7 @@ ink-to-calendar/
 │   │                            works with both Ollama (dev) and vLLM (prod)
 │   │                            switching is handled by config.py factory
 │   ├── scheduler.py          ← rules engine + GCal integration
+│   ├── patterns.py           ← stuck task detection, queries WeeklyPlan history
 │   ├── shopping.py           ← SQLite shopping list CRUD
 │   ├── auth.py               ← basic auth middleware
 │   └── static/
@@ -286,8 +326,9 @@ ink-to-calendar/
 │       ├── weeks.html
 │       └── style.css
 ├── tests/
-│   ├── test_extraction.py    ← runs prompts against test images
+│   ├── test_extraction.py    ← runs prompts against test images, checks status mark detection
 │   ├── test_scheduler.py     ← unit tests for rules engine
+│   ├── test_patterns.py      ← unit tests for stuck task detection logic
 │   └── planner_images/
 │       └── .gitignore        ← *.jpg and *.png ignored — never commit real photos
 └── docs/
@@ -397,8 +438,9 @@ Returns `WeeklyPlan`. Test with a single planner image
 from the command line before wiring into FastAPI.
 
 **Step 4 — Extraction test harness ← quality gate**
-`tests/test_extraction.py` running all August planner photos
-through the pipeline. Track per-image accuracy.
+`tests/test_extraction.py` running all planner photos through the
+pipeline. Track per-image accuracy — including whether ✓ and >
+status marks are correctly extracted.
 Do not proceed to Step 5 until accuracy is above 90%
 on your own handwriting. If accuracy is low, fix the prompts
 in `/prompts/` — not the code.
@@ -411,8 +453,16 @@ Unit test independently with mocked calendar data.
 freebusy queries + event creation + Prompt 4 fallback.
 Test against a throwaway Google Calendar first.
 
+**Step 6b — Pattern engine**
+`patterns.py` with stuck task detection.
+Input: last 6 weeks of WeeklyPlan from SQLite.
+Logic: normalize task text → fuzzy match across weeks → flag tasks
+that appear as `rolled_over` in 4 of last 6 weeks.
+Unit test with `tests/test_patterns.py` using synthetic history.
+No LLM call — pure SQL + string comparison.
+
 **Step 7 — FastAPI routes**
-`main.py` wiring all endpoints together.
+`main.py` wiring all endpoints together, including `GET /insights`.
 
 **Step 8 — Frontend**
 Upload → Review → Confirm flow, then Shopping list page.
@@ -438,5 +488,7 @@ downstream.
 - Upload photo on phone → confirmed calendar events in under 60 seconds
 - Shopping list available on phone before leaving for Sam's Club
 - Extraction accuracy above 90% on owner's handwriting
+- Status marks (✓ and >) correctly extracted alongside task text
 - Zero tasks scheduled on wrong days (Wednesday task stays Wednesday)
 - Human always reviews before calendar is touched — no surprise events
+- Stuck tasks surfaced gently after 6 weeks of history — no noise before then
