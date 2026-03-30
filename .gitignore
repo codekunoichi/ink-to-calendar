@@ -210,3 +210,6 @@ __marimo__/
 tests/**/*.png
 tests/**/*.jpg
 tests/**/*.jpeg
+
+# Chat transcripts — personal reference only
+docs/chat_transcripts/
