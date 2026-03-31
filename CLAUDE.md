@@ -477,9 +477,32 @@ Re-run the extraction test harness against the 72B model.
 Expect minor prompt tuning — budget one session for this.
 
 Do not skip the extraction test harness in step 4. 
-The owner has planner photos dating back to August that serve as 
-the real-world test suite. Accuracy on those photos gates everything 
+The owner has planner photos dating back to August that serve as
+the real-world test suite. Accuracy on those photos gates everything
 downstream.
+
+---
+
+## Extraction Test Results
+
+**First test — 2026-03-31 — `test/sample_week.png` (week of Mar 20–26)**
+
+- Model: `qwen2.5vl:7b` via Ollama on MacBook Pro M4 Max
+- Result: **PASS** — all 7 days extracted with correct dates, tasks
+  read accurately, shopping list correctly separated from daily tasks
+- Category hints were reasonable (work/errand/personal)
+- No hallucinated tasks
+
+**Known gaps to validate next:**
+- Status mark detection (✓ / >) not yet verified — this week's tasks
+  were all open. Need to test against a past week with completed and
+  rolled-over marks.
+
+**Handwriting guidelines (owner):**
+- Write each task on its own line — do not combine multiple items in
+  one line (e.g. "buy eggs salmon tomatoes" should be separate tasks
+  or kept in the shopping section)
+- This is the primary source of extraction ambiguity — not the model
 
 ---
 
