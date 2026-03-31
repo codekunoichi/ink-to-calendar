@@ -1,0 +1,29 @@
+# Core framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# HTTP client for inference API
+openai==1.57.0
+httpx==0.28.1
+
+# Data models
+pydantic==2.10.4
+
+# Google Calendar
+google-api-python-client==2.155.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.1
+
+# Database
+sqlalchemy==2.0.36
+
+# Auth
+bcrypt==4.2.1
+python-multipart==0.0.20
+
+# Image handling
+Pillow==11.1.0
+
+# Utilities
+python-dotenv==1.0.1
+tqdm==4.67.1
