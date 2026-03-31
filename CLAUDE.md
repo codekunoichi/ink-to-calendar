@@ -107,8 +107,8 @@ Two environments — code is identical, only `.env` changes:
 
 | | MacBook Pro (dev) | DGX Sparc (production) |
 |---|---|---|
-| Model | Qwen2-VL 7B (4-bit) | Qwen2-VL 72B (full) |
-| Serving | Ollama or MLX | vLLM |
+| Model | Qwen2.5-VL 7B | Qwen2.5-VL 72B (full) |
+| Serving | Ollama | vLLM |
 | Endpoint | localhost:11434 | localhost:8000 |
 | Access | localhost browser | local WiFi browser |
 | Purpose | Prompt iteration + testing | Live weekly use |
@@ -343,9 +343,9 @@ Two `.env` files — never commit either one.
 
 **`.env.mac` (active now — MacBook Pro dev)**
 ```
-# Ollama running Qwen2-VL 7B locally
+# Ollama running Qwen2.5-VL 7B locally
 INFERENCE_BASE_URL=http://localhost:11434/v1
-INFERENCE_MODEL=qwen2-vl:7b
+INFERENCE_MODEL=qwen2.5vl:7b
 INFERENCE_BACKEND=ollama
 
 # Google Calendar
@@ -364,9 +364,9 @@ DEBUG=true
 
 **`.env.dgx` (production — DGX Sparc)**
 ```
-# vLLM running Qwen2-VL 72B
+# vLLM running Qwen2.5-VL 72B
 INFERENCE_BASE_URL=http://localhost:8000/v1
-INFERENCE_MODEL=Qwen/Qwen2-VL-72B-Instruct
+INFERENCE_MODEL=Qwen/Qwen2.5-VL-72B-Instruct
 INFERENCE_BACKEND=vllm
 
 # Google Calendar
@@ -388,7 +388,7 @@ Symlink the active one: `ln -sf .env.mac .env`
 **`.env.example`** (safe to commit — no secrets)
 ```
 INFERENCE_BASE_URL=http://localhost:11434/v1
-INFERENCE_MODEL=qwen2-vl:7b
+INFERENCE_MODEL=qwen2.5vl:7b
 INFERENCE_BACKEND=ollama
 GOOGLE_CREDENTIALS_PATH=./credentials.json
 GOOGLE_CALENDAR_ID=primary
@@ -412,7 +412,7 @@ Build in this sequence — each step is independently testable.
 brew install ollama
 
 # Pull the dev model
-ollama pull qwen2-vl:7b
+ollama pull qwen2.5vl:7b
 
 # Confirm it's running
 ollama serve
