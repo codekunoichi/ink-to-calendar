@@ -13,8 +13,9 @@ Extract all handwritten content and return the following JSON structure:
         {
           "position": 1,
           "text": "exactly as written",
+          "status": "open" | "completed" | "rolled_over",
           "confidence": "high" | "medium" | "low",
-          "category_hint": "work" | "chore" | "errand" | "health" 
+          "category_hint": "work" | "chore" | "errand" | "health"
                            | "personal" | "unknown"
         }
       ]
