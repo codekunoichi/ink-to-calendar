@@ -206,13 +206,15 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# Personal planner images — never commit
+# Personal planner images and extracted data — never commit
 test/**/*.png
 test/**/*.jpg
 test/**/*.jpeg
+test/**/*.json
 tests/**/*.png
 tests/**/*.jpg
 tests/**/*.jpeg
+tests/**/*.json
 
 # Chat transcripts — personal reference only
 docs/chat_transcripts/
