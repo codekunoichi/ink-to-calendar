@@ -20,8 +20,13 @@ Your extraction rules:
    spelling, or interpret. Preserve abbreviations.
 3. If a priority item is partially illegible, include it with 
    a "confidence": "low" flag — never omit it or guess wildly.
-4. Treat bullet points, checkboxes, numbers, and dashes as 
+4. Treat bullet points, checkboxes, numbers, and dashes as
    list indicators — they are not part of the task text.
-5. Shopping list items live in the Notes section, not in daily 
+5. Each task may have a handwritten status mark beside it:
+   - A checkmark (✓) means the task is completed → status: "completed"
+   - A greater-than sign (>) means the task was rolled over to another
+     day → status: "rolled_over"
+   - No mark means the task is open → status: "open"
+6. Shopping list items live in the Notes section, not in daily
    priorities.
-6. An empty box means zero tasks for that day — do not invent tasks.
+7. An empty box means zero tasks for that day — do not invent tasks.
