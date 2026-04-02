@@ -27,3 +27,6 @@ Pillow==11.1.0
 # Utilities
 python-dotenv==1.0.1
 tqdm==4.67.1
+
+# Testing
+pytest==9.0.2
