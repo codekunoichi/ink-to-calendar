@@ -149,3 +149,76 @@ def schedule_day(
         result.append(scheduled)
 
     return result
+
+
+def schedule_week(plan: "WeeklyPlan") -> "WeeklyPlan":
+    """
+    Schedule all tasks in a WeeklyPlan against Google Calendar.
+
+    For each day:
+    1. Fetch busy slots from GCal freebusy
+    2. Run rules engine (schedule_day)
+    3. For tasks the rules engine couldn't place, try conflict resolution LLM
+    4. Create calendar events for all successfully scheduled tasks
+
+    Returns an updated WeeklyPlan with scheduled_start, scheduled_end,
+    and calendar_event_id set on each placed task.
+    """
+    from app.models import WeeklyPlan
+    from app.gcal import create_calendar_event, get_busy_slots, resolve_conflict
+
+    updated_days = []
+    for day in plan.days:
+        if not day.priorities:
+            updated_days.append(day)
+            continue
+
+        busy_slots = get_busy_slots(day.date)
+        scheduled_tasks = schedule_day(day.priorities, day.date, busy_slots)
+
+        final_tasks = []
+        for task in scheduled_tasks:
+            if task.scheduled_start is None:
+                # Rules engine found no slot — try LLM fallback
+                slot = resolve_conflict(task, day.date, open_slots=_free_slots(busy_slots, day.date))
+                if slot:
+                    task = task.model_copy(update={
+                        "scheduled_start": slot[0],
+                        "scheduled_end": slot[1],
+                    })
+
+            if task.scheduled_start is not None:
+                try:
+                    event_id = create_calendar_event(task)
+                    task = task.model_copy(update={"calendar_event_id": event_id})
+                except Exception:
+                    pass  # Event creation failure doesn't block the rest
+
+            final_tasks.append(task)
+
+        updated_days.append(day.model_copy(update={"priorities": final_tasks}))
+
+    return plan.model_copy(update={"days": updated_days})
+
+
+def _free_slots(
+    busy_slots: list[tuple],
+    target_date: "date",
+    window_start_h: int = 6,
+    window_end_h: int = 21,
+) -> list[tuple]:
+    """Return free intervals in the hard day window given busy slots."""
+    from datetime import datetime as dt
+    day_start = dt(target_date.year, target_date.month, target_date.day, window_start_h, 0)
+    day_end = dt(target_date.year, target_date.month, target_date.day, window_end_h, 0)
+
+    sorted_busy = sorted(busy_slots, key=lambda s: s[0])
+    free = []
+    cursor = day_start
+    for bstart, bend in sorted_busy:
+        if cursor < bstart:
+            free.append((cursor, bstart))
+        cursor = max(cursor, bend)
+    if cursor < day_end:
+        free.append((cursor, day_end))
+    return free
