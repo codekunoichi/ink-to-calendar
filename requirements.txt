@@ -30,3 +30,4 @@ tqdm==4.67.1
 
 # Testing
 pytest==9.0.2
+httpx==0.28.1
