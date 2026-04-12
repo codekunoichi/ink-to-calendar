@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>History — ink-to-calendar</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <h1>Week History</h1>
+  <nav>
+    <a href="/static/index.html">Upload</a>
+    <a href="/static/shopping.html">Shopping</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div id="weeks-container">
+    <div class="empty-state">
+      <div class="icon">📅</div>
+      <p>Loading…</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function loadWeeks() {
+    try {
+      const resp = await fetch('/weeks');
+      const weeks = await resp.json();
+      render(weeks);
+    } catch (_) {
+      document.getElementById('weeks-container').innerHTML =
+        '<div class="empty-state"><div class="icon">⚠️</div><p>Could not load history</p></div>';
+    }
+  }
+
+  function render(weeks) {
+    const container = document.getElementById('weeks-container');
+    if (!weeks.length) {
+      container.innerHTML =
+        '<div class="empty-state"><div class="icon">📅</div><p>No weeks uploaded yet</p></div>';
+      return;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.padding = '0 1rem';
+
+    weeks.forEach(w => {
+      const start = new Date(w.week_start);
+      const label = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const end = new Date(w.week_end);
+      const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+      const row = document.createElement('div');
+      row.className = 'week-row';
+      row.innerHTML = `
+        <div>
+          <div class="week-label">${label} – ${endLabel}</div>
+          <div class="week-meta">${w.task_count} tasks · ${w.photo_filename}</div>
+        </div>
+        <div style="color:var(--muted);font-size:1.2rem">›</div>`;
+      card.appendChild(row);
+    });
+
+    container.innerHTML = '';
+    container.appendChild(card);
+  }
+
+  loadWeeks();
+</script>
+</body>
+</html>
