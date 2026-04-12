@@ -21,6 +21,7 @@ from typing import Any
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_inference_client, get_settings
@@ -54,6 +55,11 @@ app = FastAPI(title="ink-to-calendar", lifespan=lifespan)
 _static_dir = Path(__file__).parent / "static"
 if _static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
+
+@app.get("/")
+async def index() -> FileResponse:
+    return FileResponse(str(_static_dir / "index.html"))
 
 
 # ---------------------------------------------------------------------------
