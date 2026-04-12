@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopping — ink-to-calendar</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <h1>Shopping List</h1>
+  <nav>
+    <a href="/static/index.html">Upload</a>
+    <a href="/static/weeks.html">History</a>
+  </nav>
+</header>
+
+<div class="container">
+
+  <div id="list-container">
+    <div class="empty-state">
+      <div class="icon">🛒</div>
+      <p>Loading…</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="status-bar" id="status-bar"></div>
+
+<script>
+  async function loadShopping() {
+    try {
+      const resp = await fetch('/shopping');
+      const items = await resp.json();
+      render(items);
+    } catch (_) {
+      document.getElementById('list-container').innerHTML =
+        '<div class="empty-state"><div class="icon">⚠️</div><p>Could not load shopping list</p></div>';
+    }
+  }
+
+  function render(items) {
+    const container = document.getElementById('list-container');
+
+    if (!items.length) {
+      container.innerHTML =
+        '<div class="empty-state"><div class="icon">🛒</div><p>No items yet — upload your planner first</p></div>';
+      return;
+    }
+
+    const unchecked = items.filter(i => !i.checked);
+    const checked = items.filter(i => i.checked);
+
+    let html = '<div class="card" style="padding:0.25rem 1rem">';
+
+    if (unchecked.length) {
+      unchecked.forEach(item => { html += itemHtml(item); });
+    }
+
+    if (checked.length) {
+      html += `<div style="font-size:0.75rem;color:var(--muted);padding:0.75rem 0 0.25rem;border-top:1px solid #f0f0f0;margin-top:0.5rem">Checked off</div>`;
+      checked.forEach(item => { html += itemHtml(item); });
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+
+    container.querySelectorAll('.shopping-item').forEach(el => {
+      el.addEventListener('click', () => toggle(parseInt(el.dataset.id)));
+    });
+  }
+
+  function itemHtml(item) {
+    return `
+      <div class="shopping-item ${item.checked ? 'checked' : ''}" data-id="${item.id}">
+        <div class="check">${item.checked ? '✓' : ''}</div>
+        <span class="item-text">${escHtml(item.item)}</span>
+      </div>`;
+  }
+
+  async function toggle(id) {
+    try {
+      const resp = await fetch(`/shopping/${id}`, { method: 'PATCH' });
+      if (!resp.ok) return;
+      await loadShopping();
+    } catch (_) {}
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  loadShopping();
+</script>
+</body>
+</html>
