@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review — ink-to-calendar</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <h1>Review Your Week</h1>
+  <nav><a href="/static/index.html">← Re-upload</a></nav>
+</header>
+
+<div class="container">
+
+  <div id="stuck-section"></div>
+  <div id="days-section"></div>
+  <div id="shopping-section"></div>
+
+  <button class="btn btn-primary" id="confirm-btn" style="margin-top:1rem">
+    Schedule My Week
+  </button>
+  <div style="margin-top:0.75rem;text-align:center">
+    <a href="/static/index.html" class="btn btn-ghost" style="width:100%">Back — re-upload</a>
+  </div>
+
+</div>
+
+<div class="status-bar" id="status-bar"></div>
+
+<script>
+  const STATUS_ICONS = { open: ' ', completed: '✓', rolled_over: '>' };
+  const CATEGORY_COLORS = {
+    work: '#e3edf7', chore: '#f0f0f0', errand: '#fff0e0',
+    health: '#e8f5e9', personal: '#f3e5f5', unknown: '#f5f5f5',
+  };
+
+  function showStatus(msg, type = '') {
+    const sb = document.getElementById('status-bar');
+    sb.innerHTML = (type === 'loading' ? '<span class="spinner"></span>' : '') + msg;
+    sb.className = 'status-bar visible' + (type ? ' ' + type : '');
+  }
+
+  // -------------------------------------------------------------------------
+  // Load pending plan from sessionStorage
+  // -------------------------------------------------------------------------
+
+  const plan = JSON.parse(sessionStorage.getItem('pendingPlan') || 'null');
+  if (!plan) { window.location.href = '/static/index.html'; }
+
+  // -------------------------------------------------------------------------
+  // Render days & tasks
+  // -------------------------------------------------------------------------
+
+  function renderDays(plan) {
+    const container = document.getElementById('days-section');
+    container.innerHTML = '';
+
+    plan.days.forEach(day => {
+      if (!day.priorities.length) return;
+
+      const section = document.createElement('div');
+      section.className = 'day-section';
+      section.innerHTML = `<div class="day-header">${day.day_name} · ${day.date}</div>`;
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.padding = '0.5rem 1rem';
+
+      day.priorities.forEach((task, idx) => {
+        const statusIcon = STATUS_ICONS[task.status] || ' ';
+        const isLow = task.confidence === 'low';
+
+        const row = document.createElement('div');
+        row.className = 'task-item' + (isLow ? ' confidence-low' : '');
+        row.dataset.day = day.date;
+        row.dataset.idx = idx;
+
+        row.innerHTML = `
+          <span class="status-badge ${task.status === 'rolled_over' ? 'rolled-over' : task.status}"
+                title="${task.status}">${statusIcon}</span>
+          <input class="task-text" type="text" value="${escHtml(task.text)}"
+                 data-day="${day.date}" data-idx="${idx}">
+          <span class="category-badge">${task.category_hint}</span>`;
+
+        card.appendChild(row);
+      });
+
+      section.appendChild(card);
+      container.appendChild(section);
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Render shopping list
+  // -------------------------------------------------------------------------
+
+  function renderShopping(plan) {
+    const container = document.getElementById('shopping-section');
+    if (!plan.shopping_list.length) { container.innerHTML = ''; return; }
+
+    container.innerHTML = `
+      <div class="day-header" style="margin-top:1rem">Shopping List</div>
+      <div class="card" style="padding:0.5rem 1rem" id="shopping-card"></div>`;
+
+    const card = document.getElementById('shopping-card');
+    plan.shopping_list.forEach((item, idx) => {
+      const row = document.createElement('div');
+      row.className = 'task-item';
+      row.innerHTML = `
+        <input class="task-text" type="text" value="${escHtml(item.item)}"
+               data-shop-idx="${idx}">
+        <span class="category-badge">${item.confidence}</span>`;
+      card.appendChild(row);
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Load and render stuck task observations
+  // -------------------------------------------------------------------------
+
+  async function loadInsights() {
+    try {
+      const resp = await fetch('/insights');
+      const stuck = await resp.json();
+      const container = document.getElementById('stuck-section');
+      if (!stuck.length) { container.innerHTML = ''; return; }
+
+      const displayed = stuck.slice(0, 3);
+      container.innerHTML = `
+        <div class="stuck-section">
+          <h3>Heads up</h3>
+          <ul>${displayed.map(s => `<li>· ${s.message}</li>`).join('')}</ul>
+        </div>`;
+    } catch (_) {}
+  }
+
+  // -------------------------------------------------------------------------
+  // Collect edited plan from inputs before confirming
+  // -------------------------------------------------------------------------
+
+  function collectEdits(plan) {
+    document.querySelectorAll('input.task-text[data-day]').forEach(input => {
+      const dayDate = input.dataset.day;
+      const idx = parseInt(input.dataset.idx);
+      const day = plan.days.find(d => d.date === dayDate);
+      if (day) day.priorities[idx].text = input.value.trim();
+    });
+    document.querySelectorAll('input.task-text[data-shop-idx]').forEach(input => {
+      const idx = parseInt(input.dataset.shopIdx);
+      if (plan.shopping_list[idx]) plan.shopping_list[idx].item = input.value.trim();
+    });
+    return plan;
+  }
+
+  // -------------------------------------------------------------------------
+  // Confirm
+  // -------------------------------------------------------------------------
+
+  document.getElementById('confirm-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('confirm-btn');
+    btn.disabled = true;
+    showStatus('Scheduling your week…', 'loading');
+
+    const edited = collectEdits(plan);
+
+    try {
+      const resp = await fetch('/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(edited),
+      });
+      if (!resp.ok) throw new Error('Scheduling failed');
+      const summary = await resp.json();
+      sessionStorage.setItem('scheduleSummary', JSON.stringify(summary));
+      sessionStorage.removeItem('pendingPlan');
+      showStatus(
+        `✓ ${summary.scheduled} tasks scheduled, ${summary.unscheduled} unscheduled`,
+        'success'
+      );
+      setTimeout(() => { window.location.href = '/static/shopping.html'; }, 2000);
+    } catch (e) {
+      showStatus(e.message, 'error');
+      btn.disabled = false;
+    }
+  });
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Init
+  renderDays(plan);
+  renderShopping(plan);
+  loadInsights();
+</script>
+</body>
+</html>
