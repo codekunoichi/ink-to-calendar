@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ink-to-calendar</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <h1>ink-to-calendar</h1>
+  <nav>
+    <a href="/static/shopping.html">Shopping</a>
+    <a href="/static/weeks.html">History</a>
+  </nav>
+</header>
+
+<div class="container">
+
+  <div id="last-week"></div>
+
+  <div class="card">
+    <label class="upload-zone" id="upload-zone">
+      <input type="file" id="file-input" accept="image/*" capture="environment">
+      <div class="icon">📷</div>
+      <strong>Tap to photograph your planner</strong>
+      <p>Take a photo of your Sunday planner spread</p>
+    </label>
+  </div>
+
+  <button class="btn btn-primary" id="upload-btn" style="display:none">
+    Upload &amp; Extract
+  </button>
+
+</div>
+
+<div class="status-bar" id="status-bar"></div>
+
+<script>
+  const fileInput = document.getElementById('file-input');
+  const uploadBtn = document.getElementById('upload-btn');
+  const uploadZone = document.getElementById('upload-zone');
+  const statusBar = document.getElementById('status-bar');
+
+  // Show upload button when file is selected
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length > 0) {
+      uploadBtn.style.display = 'block';
+      uploadZone.querySelector('p').textContent = fileInput.files[0].name;
+    }
+  });
+
+  // Drag and drop
+  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+      uploadBtn.style.display = 'block';
+      uploadZone.querySelector('p').textContent = file.name;
+    }
+  });
+
+  function showStatus(msg, type = '') {
+    statusBar.innerHTML = (type === 'loading' ? '<span class="spinner"></span>' : '') + msg;
+    statusBar.className = 'status-bar visible' + (type ? ' ' + type : '');
+  }
+  function hideStatus() { statusBar.className = 'status-bar'; }
+
+  uploadBtn.addEventListener('click', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    showStatus('Extracting your planner… this may take up to 60s', 'loading');
+    uploadBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const resp = await fetch('/upload', { method: 'POST', body: formData });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.detail || 'Upload failed');
+      }
+      const plan = await resp.json();
+      sessionStorage.setItem('pendingPlan', JSON.stringify(plan));
+      window.location.href = '/static/review.html';
+    } catch (e) {
+      showStatus(e.message, 'error');
+      uploadBtn.disabled = false;
+    }
+  });
+
+  // Show last week summary if available
+  async function loadLastWeek() {
+    try {
+      const resp = await fetch('/weeks');
+      const weeks = await resp.json();
+      if (weeks.length === 0) return;
+      const w = weeks[0];
+      const el = document.getElementById('last-week');
+      el.innerHTML = `
+        <div class="card" style="margin-bottom:1rem">
+          <div style="font-size:0.8rem;color:var(--muted);margin-bottom:0.25rem">Last uploaded</div>
+          <div style="font-weight:500">${w.week_start} — ${w.week_end}</div>
+          <div style="font-size:0.85rem;color:var(--muted);margin-top:0.25rem">${w.task_count} tasks</div>
+        </div>`;
+    } catch (_) {}
+  }
+  loadLastWeek();
+</script>
+</body>
+</html>
