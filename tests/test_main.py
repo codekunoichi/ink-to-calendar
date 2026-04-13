@@ -5,6 +5,7 @@ Run with: venv/bin/python -m pytest tests/test_main.py -v
 All external dependencies (vision model, GCal, database) are mocked.
 """
 
+import base64
 import json
 import tempfile
 from datetime import date, datetime
@@ -67,15 +68,21 @@ SCHEDULED_PLAN = SAMPLE_PLAN.model_copy(update={
 
 @pytest.fixture()
 def client(tmp_path):
-    """TestClient with database and uploads isolated to tmp_path."""
+    """TestClient with database, uploads, and auth bypassed (unit tests don't test auth)."""
     import app.main as main_module
+    from app.auth import hash_password
+    pw_hash = hash_password("testpass")
     with patch.object(main_module, "DB_PATH", tmp_path / "test.db"), \
-         patch.object(main_module, "UPLOAD_DIR", tmp_path / "uploads"):
+         patch.object(main_module, "UPLOAD_DIR", tmp_path / "uploads"), \
+         patch("app.auth.get_settings") as mock_settings:
+        mock_settings.return_value.app_username = "rumpa"
+        mock_settings.return_value.app_password_hash = pw_hash
         from app.database import init_db
         init_db(tmp_path / "test.db")
         (tmp_path / "uploads").mkdir()
+        creds = base64.b64encode(b"rumpa:testpass").decode()
         from app.main import app
-        yield TestClient(app)
+        yield TestClient(app, headers={"Authorization": f"Basic {creds}"})
 
 
 # ---------------------------------------------------------------------------

@@ -20,10 +20,11 @@ from typing import Any
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.auth import require_auth
 from app.config import get_inference_client, get_settings
 from app.database import init_db, load_recent_plans, save_weekly_plan
 from app.models import WeeklyPlan
@@ -48,16 +49,20 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="ink-to-calendar", lifespan=lifespan)
+app = FastAPI(
+    title="ink-to-calendar",
+    lifespan=lifespan,
+    dependencies=[Depends(require_auth)],
+)
 
 
-# Serve frontend static files
+# Static files served without auth — browser needs CSS/JS before credentials prompt
 _static_dir = Path(__file__).parent / "static"
 if _static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 
-@app.get("/")
+@app.get("/", dependencies=[])
 async def index() -> FileResponse:
     return FileResponse(str(_static_dir / "index.html"))
 
